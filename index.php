@@ -1,9 +1,9 @@
 <?php
 //get preferences
 $pref_Feed = "-3"; //Default: fresh feed
-$pref_Article = 'unread'; //default
+$pref_Article = 'unread'; //default: unread articles only
 $pref_number = 10; //TODO: add a dropdown selector to menu
-$pref_textType = "content"; //excerpt or content:  TODO: excerpt should use an expanding div for each article.
+$pref_textType = "content"; //default: full articles
 $pref_attachments = 0; //TODO: add this option to the menu.  Actually, I'm not sure anyone would use this.
 
 if ( isset($_COOKIE['mobile_ttrss_number']) ){
@@ -59,6 +59,8 @@ if (isset($_GET['cmd']) && $_GET['cmd'] == "markRead"){
 <link rel="shortcut icon" href="../images/favicon.png"> 
 <meta name = "viewport" content = "initial-scale = 1, user-scalable = yes">
 <script>
+articleId_keeper=0;
+articleOpen_keeper=0;
 function toggleStar(id, sid){
 	data='{"sid":"' + sid + '","op":"updateArticle","article_ids":"' + id + '","mode":"2","field":"0"}';
 	var xmlhttp = new XMLHttpRequest();
@@ -100,7 +102,7 @@ function menu(option){
 	if (option == "showArticleAll"){
 		document.cookie = "mobile_ttrss_article=" + "all" + ";expires="+expire.toGMTString();
 		document.getElementById("showArticleUnread").style.backgroundPosition = "10 -275";
-	}else if (option == "showArticleUnread"){
+	} else if (option == "showArticleUnread"){
 		document.cookie = "mobile_ttrss_article=" + "unread" + ";expires="+expire.toGMTString();
 		document.getElementById("showArticleAll").style.backgroundPosition = "10 -275";
 	}else if (option == "showTextType_excerpt"){
@@ -132,6 +134,43 @@ function menu(option){
 	}
 	location.reload();
 }
+function openArticle(url,id,link) {
+	sid = "<?php echo $sessionID; ?>";
+	if (id == articleOpen_keeper){
+		 window.open(link);
+	}else{ 
+		articleId_keeper=id;
+		data='{"sid":"' + sid + '","op":"getArticle","article_id":"' + id + '"}';
+		if (window.XMLHttpRequest) {
+			req = new XMLHttpRequest();
+			req.onreadystatechange = processReqChange;
+			req.open("POST", "../api/", true);
+			req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+			req.send(data);
+		} else if (window.ActiveXObject) {
+			isIE = true;
+			req = new ActiveXObject("Microsoft.XMLHTTP");
+			if (req) {
+				req.onreadystatechange = processReqChange;
+				req.open("GET", url, true);
+				req.send();
+			}
+		}
+	}
+}
+function processReqChange() {
+	if (req.readyState == 4) {
+		if (req.status == 200) {
+			var data = eval('(' + req.responseText + ')');
+			if (articleOpen_keeper){ document.getElementById("articleBody_" + articleOpen_keeper).innerHTML = ''}; 
+			document.getElementById("articleBody_" + articleId_keeper).innerHTML = data.content[0].content;
+			window.location.hash = '#' + articleId_keeper;
+			articleOpen_keeper = articleId_keeper; 
+		} else {
+			alert("There was a problem retrieving data:\n" + req.statusText);
+		}
+	}
+}
 </script>
 
 <style>
@@ -147,7 +186,13 @@ body {
 }
 .articleHeader{
 	border-top: thin solid #A5C1F0;
-	background : #D6E0FA;
+	<?php 
+	if ( $pref_textType == "content" ){
+		print "	background : #D6E0FA;";
+	}else{
+		print "	background: white;";
+	}
+	?>
 	color : black;
 	font-size : 16px;
 }
@@ -276,6 +321,9 @@ li {
 	border:0px;
 	float:left;
 }
+iframe{
+	border: 0;
+}
 <?php 
 if ( $pref_Feed == "-1" ){
 	print "#showFeedStarred{background-position: -10 -275;}\n";
@@ -358,13 +406,16 @@ foreach ($data['content'] as $item){
 		print "<div onclick='toggleStar(\"".$item['id']."\",\"".$sessionID."\")' class='starOff' id='star_".$item['id']."'></div>\n";
 	}
 	print "</td><td>\n";
-	print "<a class='headerLink' href='".$item['link']."' target='_blank'>\n"; 
+	if ($pref_textType == "content"){
+		print "<a class='headerLink' href='".$item['link']."' target='_blank'>\n"; 
+	}else{
+		print "<a class='headerLink' onclick='openArticle(\"".$item['link']."\",".$item['id'].",\"".$item['link']."\")'>\n"; 
+	}
 	print utf8_decode(html_entity_decode($item['title']))."\n";
 	print "<div class='feedTitle'>".utf8_decode($item['feed_title'])."</div>\n</a>\n";
 	print "</td></tr></table>\n";
 	print "</div>\n";
-	print "<div class='articleBody'>\n".utf8_decode($item[$pref_textType])."\n</div>\n";
-	//print "<div class='articleBody'>\n".utf8_decode($item['content'])."\n</div>\n";
+	print "<div class='articleBody' id='articleBody_".$item['id']."'>\n".utf8_decode($item[$pref_textType])."\n</div>\n";
 	print "</div>\n";
 }
 

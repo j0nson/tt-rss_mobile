@@ -6,6 +6,7 @@ $pref_number = 30; //TODO: add a dropdown selector to menu
 $pref_textType = "content"; //default: full articles
 $pref_attachments = 0; //TODO: add this option to the menu.  Actually, I'm not sure anyone would use this.
 $login = 0;//indicator for log in status
+$error = '';
 if ( isset($_COOKIE['mobile_ttrss_number']) ){
 	$pref_number = $_COOKIE['mobile_ttrss_number'];
 }
@@ -31,6 +32,7 @@ if ( ! isset($_COOKIE['mobile_ttrss_sid']) && ! isset($_POST["username"]) ){
 	$login = 1;
 } elseif ( ! isset($_COOKIE['mobile_ttrss_sid']) && isset($_POST["username"]) ) {
 	$data = json_decode(get('{"op":"login","user":"' . $_POST["username"] . '","password":"' . $_POST["password"] . '"}'), TRUE);
+	//print_r ($data);  //debugging logins
 	$sessionID = $data['content']['session_id'];
 	setcookie('mobile_ttrss_sid',$sessionID,time() + (86400 * 30)); // 86400 = 1 day
 }else{
@@ -410,6 +412,7 @@ if ( $pref_Feed == "-1" ){
 <?php
 
 if ( $login == 1 ){
+	print "<a><b>".$error."</b></a>";
  	?>
 	<form id='login' action='index.php' method='post' accept-charset='UTF-8'>
 		<fieldset>

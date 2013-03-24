@@ -2,10 +2,10 @@
 //get preferences
 $pref_Feed = "-3"; //Default: fresh feed
 $pref_Article = 'unread'; //default: unread articles only
-$pref_number = 10; //TODO: add a dropdown selector to menu
+$pref_number = 30; //TODO: add a dropdown selector to menu
 $pref_textType = "content"; //default: full articles
 $pref_attachments = 0; //TODO: add this option to the menu.  Actually, I'm not sure anyone would use this.
-
+$login = 0;//indicator for log in status
 if ( isset($_COOKIE['mobile_ttrss_number']) ){
 	$pref_number = $_COOKIE['mobile_ttrss_number'];
 }
@@ -21,23 +21,14 @@ if ( isset($_COOKIE['mobile_ttrss_feed']) ){
 if ( isset($_COOKIE['mobile_ttrss_article']) ){
 	$pref_Article = $_COOKIE['mobile_ttrss_article'];
 }
+//override unread for special feeds
+if ($pref_Feed == "-2" || $pref_Feed == "-1"){
+	$pref_Article = "all";
+}
 
 //get session id
 if ( ! isset($_COOKIE['mobile_ttrss_sid']) && ! isset($_POST["username"]) ){
-	?>
-	<form id='login' action='index.php' method='post' accept-charset='UTF-8'>
-		<fieldset>
-			<legend>Login</legend>
-			<input type='hidden' name='submitted' id='submitted' value='1'/>
-			<label for='username' >UserName:</label>
-			<input type='text' name='username' id='username'  maxlength="50" /><br>
-			<label for='password' >Password:</label>
-			<input type='password' name='password' id='password' maxlength="50" /><br>
-			<input type='submit' name='Submit' value='Submit' />
-		</fieldset>
-	</form>
-	<?php
-	exit;
+	$login = 1;
 } elseif ( ! isset($_COOKIE['mobile_ttrss_sid']) && isset($_POST["username"]) ) {
 	$data = json_decode(get('{"op":"login","user":"' . $_POST["username"] . '","password":"' . $_POST["password"] . '"}'), TRUE);
 	$sessionID = $data['content']['session_id'];
@@ -61,6 +52,14 @@ if (isset($_GET['cmd']) && $_GET['cmd'] == "markRead"){
 <script>
 articleId_keeper=0;
 articleOpen_keeper=0;
+function showSpinner(option){
+	if ( option ){
+		document.getElementById("spinner").style.top = document.body.scrollTop + "px"; 
+		document.getElementById("spinner").style.display = "block"; 
+	}else{
+	 	document.getElementById("spinner").style.display = "none";
+	} 
+}
 function toggleStar(id, sid){
 	data='{"sid":"' + sid + '","op":"updateArticle","article_ids":"' + id + '","mode":"2","field":"0"}';
 	var xmlhttp = new XMLHttpRequest();
@@ -138,8 +137,13 @@ function openArticle(url,id,link) {
 	sid = "<?php echo $sessionID; ?>";
 	if (id == articleOpen_keeper){
 		 window.open(link);
-	}else{ 
+	}else{
+		document.getElementById(id).style.backgroundColor = "#F7F8FC"; 
+		document.getElementById('articleHeader_'+id).style.backgroundColor = "#D6E0FA"; 
 		articleId_keeper=id;
+		if (articleOpen_keeper){ document.getElementById("articleBody_" + articleOpen_keeper).innerHTML = ''};
+		//document.getElementById("articleBody_" + articleId_keeper).innerHTML = "";
+		window.location.hash = '#' + articleId_keeper;
 		data='{"sid":"' + sid + '","op":"getArticle","article_id":"' + id + '"}';
 		if (window.XMLHttpRequest) {
 			req = new XMLHttpRequest();
@@ -162,9 +166,9 @@ function processReqChange() {
 	if (req.readyState == 4) {
 		if (req.status == 200) {
 			var data = eval('(' + req.responseText + ')');
-			if (articleOpen_keeper){ document.getElementById("articleBody_" + articleOpen_keeper).innerHTML = ''}; 
+			//if (articleOpen_keeper){ document.getElementById("articleBody_" + articleOpen_keeper).innerHTML = ''}; 
 			document.getElementById("articleBody_" + articleId_keeper).innerHTML = data.content[0].content;
-			window.location.hash = '#' + articleId_keeper;
+			//window.location.hash = '#' + articleId_keeper;
 			articleOpen_keeper = articleId_keeper; 
 		} else {
 			alert("There was a problem retrieving data:\n" + req.statusText);
@@ -175,7 +179,7 @@ function processReqChange() {
 
 <style>
 body {
-	width : 320px;
+	width : 100%;
 	background : white;
 	color : black;
 	margin : 0px;
@@ -183,6 +187,24 @@ body {
 	font-family : sans-serif;
 	font-size : 12px;
 	overflow-x : hidden;
+	webkit-tap-highlight-color: red; 
+}
+#spinner{
+ text-align: center;
+ background: rgba(0,0,0,.5); 
+ width:100%; 
+ height:100%; 
+ position:fixed;
+ top:0; 
+ left:0; 
+ z-index:999;
+ display: none;
+}
+#spinnerTop{
+	width:100%;
+	background-color: black;
+	color: white;
+	font-size: 16px;
 }
 .articleHeader{
 	border-top: thin solid #A5C1F0;
@@ -211,6 +233,7 @@ a.footerLink:link{
 }
 img{
 	max-width: 100%;
+	height: auto; 
 }
 .footer, .header{
 	background: -webkit-gradient(linear, 0% 0%, 0% 100%, from(#F7F8FC), to(#D6E0FA));
@@ -322,6 +345,7 @@ li {
 	float:left;
 }
 iframe{
+	max-width: 100%;
 	border: 0;
 }
 <?php 
@@ -349,6 +373,7 @@ if ( $pref_textType == "content" ){
 
 <head>
 <body>
+<div id="spinner"><div id="spinnerTop">Working...</div></div>
 <div class="header">
 <!--<div onclick="alert('feeds');" id="feedsButton">Feeds</div> ToDo: feed selection screen.  I don't really have a need for it though... -->
 <div onclick="location.reload();" id="reloadButton"></div>
@@ -384,6 +409,23 @@ if ( $pref_Feed == "-1" ){
 
 <?php
 
+if ( $login == 1 ){
+ 	?>
+	<form id='login' action='index.php' method='post' accept-charset='UTF-8'>
+		<fieldset>
+			<legend>Login</legend>
+			<input type='hidden' name='submitted' id='submitted' value='1'/>
+			<label for='username' >UserName:</label>
+			<input type='text' name='username' id='username'  maxlength="50" /><br>
+			<label for='password' >Password:</label>
+			<input type='password' name='password' id='password' maxlength="50" /><br>
+			<input type='submit' name='Submit' value='Submit' />
+		</fieldset>
+	</form>
+	<?php
+	exit;
+} 
+
 $json = get('{"op":"getHeadlines","sid":"' . $sessionID . '","feed_id":"' . $pref_Feed .'","limit":' . $pref_number . ',"show_' . $pref_textType . '":"1","include_attachments":' . $pref_attachments . ',"view_mode":"' . $pref_Article . '"}');
 //print $json;
 //exit;
@@ -398,8 +440,8 @@ if ( $data['status'] == 1 ){
 foreach ($data['content'] as $item){
 	$ids .= $item['id'].",";
 	print "<div id='".$item['id']."'>\n";
-	print "<div class='articleHeader'>\n";
-	print "<table><tr><td>\n";
+	print "<div class='articleHeader' id='articleHeader_".$item['id']."'>\n";
+	print "<table width='100%'><tr><td width='20px'>\n";
 	if ($item['marked'] == true){
 		print "<div onclick='toggleStar(\"".$item['id']."\",\"".$sessionID."\")' class='starOn' id='star_".$item['id']."'></div>\n";
 	}else{
@@ -411,7 +453,8 @@ foreach ($data['content'] as $item){
 	}else{
 		print "<a class='headerLink' onclick='openArticle(\"".$item['link']."\",".$item['id'].",\"".$item['link']."\")'>\n"; 
 	}
-	print utf8_decode(html_entity_decode($item['title']))."\n";
+	//print utf8_decode($item['title'])."\n";
+	print iconv("UTF-8", "CP1252", $item['title']);
 	print "<div class='feedTitle'>".utf8_decode($item['feed_title'])."</div>\n</a>\n";
 	print "</td></tr></table>\n";
 	print "</div>\n";
@@ -422,8 +465,9 @@ foreach ($data['content'] as $item){
 if ( count($data['content']) == 0 ){
 	print "<a>No New Articles</a>";
 }else{
-	print '<div class="footer"><a class="footerLink" href="index.php?cmd=markRead&ids=' . $ids . '">Mark these items as read</a></div>';
+	print '<div class="footer"><a class="footerLink" href="index.php?cmd=markRead&ids=' . $ids . '"  onclick="showSpinner(1)">Mark these items as read</a></div>';
 }
+
 
 function get($params){
 	$url = $_SERVER["SERVER_NAME"].$_SERVER["REQUEST_URI"];

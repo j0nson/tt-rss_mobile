@@ -312,7 +312,8 @@ img{
 	font-size : 16px;
 	position: absolute;
 	top: 5px;
-	left: 100px;
+	width: 100%;
+	text-align: center;
 	}
 #menu{
 	background-color: #D6E0FA;

@@ -192,15 +192,15 @@ body {
 	webkit-tap-highlight-color: red; 
 }
 #spinner{
- text-align: center;
- background: rgba(0,0,0,.5); 
- width:100%; 
- height:100%; 
- position:fixed;
- top:0; 
- left:0; 
- z-index:999;
- display: none;
+	text-align: center;
+	background: rgba(0,0,0,.5); 
+	width:100%; 
+	height:100%; 
+	position:fixed;
+	top:0; 
+	left:0; 
+	z-index:999;
+	display: none;
 }
 #spinnerTop{
 	width:100%;
@@ -282,6 +282,7 @@ img{
 	height: 20px;
 	background-image: url(mobile-sprite.png);
 	background-position: -35 -240;
+	z-index: 998;
 }
 #feedsButton{
 	position: absolute;

@@ -4,9 +4,11 @@ $pref_Feed = "-3"; //Default: fresh feed
 $pref_Article = 'unread'; //default: unread articles only
 $pref_number = 30; //TODO: add a dropdown selector to menu
 $pref_textType = "content"; //default: full articles
+$order_by = "date_reverse"; //date_reverse or feed_dates      
 $pref_attachments = 0; //TODO: add this option to the menu.  Actually, I'm not sure anyone would use this.
 $login = 0;//indicator for log in status
 $error = '';
+$sessionID = "null";
 if ( isset($_COOKIE['mobile_ttrss_number']) ){
 	$pref_number = $_COOKIE['mobile_ttrss_number'];
 }
@@ -21,6 +23,9 @@ if ( isset($_COOKIE['mobile_ttrss_feed']) ){
 } 
 if ( isset($_COOKIE['mobile_ttrss_article']) ){
 	$pref_Article = $_COOKIE['mobile_ttrss_article'];
+}
+if ( isset($_COOKIE['mobile_ttrss_orderBy']) ){
+	$order_by = $_COOKIE['mobile_ttrss_orderBy'];
 }
 //override unread for special feeds
 if ($pref_Feed == "-2" || $pref_Feed == "-1"){
@@ -97,7 +102,7 @@ function menu(option){
 	var expire = new Date();
 	expire.setTime(today.getTime() + 3600000*24*10000); //10000 day expiration
 	
-	if ( option != "showTextType_content" && option != "showTextType_excerpt" ){
+	if ( option != "showTextType_content" && option != "showTextType_excerpt" && option != "showNewFirst_date_reverse" && option != "showNewFirst_feed_dates"){
 		document.getElementById(option).style.backgroundPosition = "-10 -275";
 	}
 	if (option == "showArticleAll"){
@@ -132,6 +137,12 @@ function menu(option){
 		document.getElementById("showFeedAll").style.backgroundPosition = "10 -275";
 		document.getElementById("showFeedShared").style.backgroundPosition = "10 -275";
 		document.getElementById("showFeedStarred").style.backgroundPosition = "10 -275";
+	}else if (option == "showNewFirst_feed_dates"){
+		document.cookie = "mobile_ttrss_orderBy=" + "date_reverse" + ";expires="+expire.toGMTString();
+		document.getElementById("showNewFirst").style.backgroundPosition = "10 -275";
+	}else if (option == "showNewFirst_date_reverse"){
+		document.cookie = "mobile_ttrss_orderBy=" + "feed_dates" + ";expires="+expire.toGMTString();
+		document.getElementById("showNewFirst").style.backgroundPosition = "-10 -275";
 	}
 	location.reload();
 }
@@ -140,11 +151,11 @@ function openArticle(url,id,link) {
 	if (id == articleOpen_keeper){
 		 window.open(link);
 	}else{
+		//document.getElementById("articleBodySpinner_" + id).style.display = "block"; 
 		document.getElementById(id).style.backgroundColor = "#F7F8FC"; 
 		document.getElementById('articleHeader_'+id).style.backgroundColor = "#D6E0FA"; 
 		articleId_keeper=id;
 		if (articleOpen_keeper){ document.getElementById("articleBody_" + articleOpen_keeper).innerHTML = ''};
-		//document.getElementById("articleBody_" + articleId_keeper).innerHTML = "";
 		window.location.hash = '#' + articleId_keeper;
 		data='{"sid":"' + sid + '","op":"getArticle","article_id":"' + id + '"}';
 		if (window.XMLHttpRequest) {
@@ -168,9 +179,7 @@ function processReqChange() {
 	if (req.readyState == 4) {
 		if (req.status == 200) {
 			var data = eval('(' + req.responseText + ')');
-			//if (articleOpen_keeper){ document.getElementById("articleBody_" + articleOpen_keeper).innerHTML = ''}; 
 			document.getElementById("articleBody_" + articleId_keeper).innerHTML = data.content[0].content;
-			//window.location.hash = '#' + articleId_keeper;
 			articleOpen_keeper = articleId_keeper; 
 		} else {
 			alert("There was a problem retrieving data:\n" + req.statusText);
@@ -189,7 +198,6 @@ body {
 	font-family : sans-serif;
 	font-size : 12px;
 	overflow-x : hidden;
-	webkit-tap-highlight-color: red; 
 }
 #spinner{
 	text-align: center;
@@ -208,6 +216,11 @@ body {
 	color: white;
 	font-size: 16px;
 }
+#articleBodySpinner{
+	width: 100%;
+	height: 40px;
+	background-image: url(mobile-sprite.png); 
+} 
 .articleHeader{
 	border-top: thin solid #A5C1F0;
 	<?php 
@@ -246,13 +259,14 @@ img{
 	
 	border-top: thin solid #A5C1F0;
 	color : black;
-	height: 30px;
 }
 .footer{
 	text-align: center;
+	height: 40px;
 }
 .header{
 	position: relative;
+	height: 30px;
 }
 .starOn, .starOff{
 	width:20px;
@@ -292,7 +306,6 @@ img{
 	box-shadow:inset 0px 1px 0px 0px #ffffff;
 	background:-webkit-gradient( linear, left top, left bottom, color-stop(0.05, #ededed), color-stop(1, #dfdfdf) );
 	background:-moz-linear-gradient( center top, #ededed 5%, #dfdfdf 100% );
-	filter:progid:DXImageTransform.Microsoft.gradient(startColorstr='#ededed', endColorstr='#dfdfdf');
 	background-color:#ededed;
 	-moz-border-radius:6px;
 	-webkit-border-radius:6px;
@@ -314,7 +327,7 @@ img{
 	position: absolute;
 	top: 5px;
 	width: 100%;
-	text-align: center;
+	text-align:center;
 	}
 #menu{
 	background-color: #D6E0FA;
@@ -372,10 +385,12 @@ if ( $pref_Article == "all" ){
 if ( $pref_textType == "content" ){
 	print "#showTextType{background-position: -10 -275;}\n";
 }
+if ( $order_by == "feed_dates" ){ 
+	print "#showNewFirst{background-position: -10 -275;}\n";
+}
 ?>
 </style>
-
-<head>
+</head>
 <body>
 <div id="spinner"><div id="spinnerTop">Working...</div></div>
 <div class="header">
@@ -405,6 +420,7 @@ if ( $pref_Feed == "-1" ){
 		<li><div class="menuImg" id="showFeedAll"></div><a onclick="menu('showFeedAll');">All Items</a></li>
 		<li><div class="menuImg" id="showFeedShared"></div><a onclick="menu('showFeedShared');">Shared&nbsp;&nbsp;</a></li>
 		<li><div class="menuImg" id="showFeedFresh"></div><a onclick="menu('showFeedFresh');">Fresh&nbsp;&nbsp;&nbsp;</a></li>
+		<li><div class="menuImg" id="showNewFirst"></div><a onclick="menu('showNewFirst_<?php echo $order_by; ?>');">New&nbsp;First</a></li>
 		<hr>
 		<li><div class="menuImg" id="updateFeed"></div><a onclick=" updateFeed('-4','<?php echo $sessionID;?>');">Update All</a></li>
 	</ul> 
@@ -414,33 +430,42 @@ if ( $pref_Feed == "-1" ){
 <?php
 
 if ( $login == 1 ){
-	print "<a><b>".$error."</b></a>";
+	print "<a><b>".$error."</b></a>\n";
  	?>
-	<form id='login' action='index.php' method='post' accept-charset='UTF-8'>
-		<fieldset>
-			<legend>Login</legend>
-			<input type='hidden' name='submitted' id='submitted' value='1'/>
-			<label for='username' >UserName:</label>
-			<input type='text' name='username' id='username'  maxlength="50" /><br>
-			<label for='password' >Password:</label>
-			<input type='password' name='password' id='password' maxlength="50" /><br>
-			<input type='submit' name='Submit' value='Submit' />
-		</fieldset>
-	</form>
+<form id='login' action='index.php' method='post' accept-charset='UTF-8'>
+	<fieldset>
+		<legend>Login</legend>
+		<input type='hidden' name='submitted' id='submitted' value='1'/>
+		<label for='username' >UserName:</label>
+		<input type='text' name='username' id='username'  maxlength="50" /><br>
+		<label for='password' >Password:</label>
+		<input type='password' name='password' id='password' maxlength="50" /><br>
+		<input type='submit' name='Submit' value='Submit' />
+	</fieldset>
+</form>
+</body>
+</html>
 	<?php
 	exit;
 } 
 
-$json = get('{"op":"getHeadlines","sid":"' . $sessionID . '","feed_id":"' . $pref_Feed .'","limit":' . $pref_number . ',"show_' . $pref_textType . '":"1","include_attachments":' . $pref_attachments . ',"view_mode":"' . $pref_Article . '"}');
+$json = get('{"op":"getHeadlines","order_by":"' . $order_by . '","sid":"' . $sessionID . '","feed_id":"' . $pref_Feed .'","limit":' . $pref_number . ',"show_' . $pref_textType . '":"1","include_attachments":' . $pref_attachments . ',"view_mode":"' . $pref_Article . '"}');
 //print $json;
 //exit;
 $data = json_decode($json, TRUE);
 $ids = '';
 
 if ( $data['status'] == 1 ){
-	setcookie('mobile_ttrss_sid',$sessionID,time() - 3600);
-	print '<script type="text/javascript">window.location = "' . $_SERVER['PHP_SELF'] . '"</script>';
-	//header('Location: ' . $_SERVER['PHP_SELF'] );
+	//print $json;
+	?>
+	<script type="text/javascript">
+	var today = new Date();
+	var expire = new Date();
+	expire.setTime(today.getTime() - 3600);
+	document.cookie = "mobile_ttrss_sid=null;expires="+expire.toGMTString();
+	window.location = "<?php echo $_SERVER['PHP_SELF']; ?>?login=true"
+	</script>
+	<?php
 }
 foreach ($data['content'] as $item){
 	$ids .= $item['id'].",";
@@ -463,14 +488,15 @@ foreach ($data['content'] as $item){
 	print "<div class='feedTitle'>".utf8_decode($item['feed_title'])."</div>\n</a>\n";
 	print "</td></tr></table>\n";
 	print "</div>\n";
-	print "<div class='articleBody' id='articleBody_".$item['id']."'>\n".utf8_decode($item[$pref_textType])."\n</div>\n";
-	print "</div>\n";
+	print "<div class='articleBody' id='articleBody_".$item['id']."'>\n".utf8_decode($item[$pref_textType])."\n";
+	//print "<div class='articleBodySpinner' id='articleBodySpinner_".$item['id']."'></div>\n"; 
+	print "</div>\n</div>\n";
 }
 
 if ( count($data['content']) == 0 ){
-	print "<a>No New Articles</a>";
+	print "<br><div style='text-align:center;'>No Articles</div>";
 }else{
-	print '<div class="footer"><a class="footerLink" href="index.php?cmd=markRead&ids=' . $ids . '"  onclick="showSpinner(1)">Mark these items as read</a></div>';
+	print '<div class="footer"><br><a class="footerLink" href="index.php?cmd=markRead&ids=' . $ids . '"  onclick="showSpinner(1)">Mark these items as read</a></div>';
 }
 
 
